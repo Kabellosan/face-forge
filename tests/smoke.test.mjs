@@ -50,8 +50,21 @@ globalThis.fetch = async (url, opts) => {
     if (opts.headers.Authorization !== "Key tf-key") return { ok: false, status: 401, text: async () => "no" };
     return { ok: true, json: async () => ({ images: [1, 2, 3].map((i) => ({ url: `data:image/png;base64,${i}` })) }) };
   }
-  return { ok: true, blob: async () => new Blob(["x"]) };
+  if (url === "https://api.github.com/gists/0123456789abcdef0123") {
+    gistCalls++;
+    return { ok: true, json: async () => ({ files: {
+      "a.webp": { filename: "a.webp", raw_url: "https://gist.githubusercontent.com/x/raw/a.webp" },
+      "b.png": { filename: "b.png", raw_url: "https://gist.githubusercontent.com/x/raw/b.png" },
+      "ring.png": { filename: "ring.png", raw_url: "https://gist.githubusercontent.com/x/raw/ring.png" },
+      "face-forge.json": { filename: "face-forge.json", raw_url: "https://gist.githubusercontent.com/x/raw/face-forge.json" }
+    } }) };
+  }
+  if (url.endsWith("face-forge.json")) return { ok: true, json: async () => ({ style: "GIST STYLE" }) };
+  fetchedFiles.push(url);
+  return { ok: true, blob: async () => new Blob(["x"], { type: "text/plain" }) };
 };
+let gistCalls = 0;
+const fetchedFiles = [];
 
 // Socket: a shared bus between "clients"; emit never echoes to the sender (like Foundry).
 const clients = [];
@@ -99,10 +112,10 @@ await import("../scripts/main.mjs");
 for (const c of clients) c.run(() => { hooks.init.forEach((f) => f()); hooks.ready.forEach((f) => f()); });
 const api = baseGame.modules.get("face-forge").api;
 
-// Without a style folder: a clear error, no fal call.
-settings.styleFolder = "";
+// Without a style folder or link: a clear error, no fal call.
+settings.styleFolder = ""; settings.privateStyle = "";
 gm.run(() => {});
-await api.forge({ description: "x", name: "x" }).then(() => { throw new Error("forged without refs"); }, (e) => { if (!/style reference folder/.test(e.message)) throw e; });
+await api.forge({ description: "x", name: "x" }).then(() => { throw new Error("forged without refs"); }, (e) => { if (!/No style references/.test(e.message)) throw e; });
 if (falBody) throw new Error("fal called without refs");
 settings.styleFolder = "worlds/vale/style";
 
@@ -156,6 +169,22 @@ settings.playersCanForge = true;
 // No GM online: fails fast, no socket traffic.
 baseGame.users.activeGM = null; player.game.users = { ...baseGame.users, activeGM: null };
 await player.run(() => api.forge({ description: "x", name: "x" })).then(() => { throw new Error("forged with no GM"); }, (e) => { if (!/GM has to be logged in/.test(e.message)) throw e; });
+
+// Private style gist: its refs join the folder's, its style reaches the prompt,
+// ring.png is drawn on the token (not sent as a reference), and the listing is cached.
+settings.privateStyle = "https://gist.github.com/Someone/0123456789abcdef0123";
+gm.run(() => {}); fetchedFiles.length = 0;
+const gistApp = await api.open(actor);
+await Forge.onForge.call(gistApp);
+if (falBody.image_urls.length !== 5) throw new Error("gist + folder refs: " + falBody.image_urls.length);
+if (!falBody.prompt.includes("GIST STYLE")) throw new Error("gist style not in prompt");
+if (!fetchedFiles.filter((f) => f.endsWith("ring.png")).length) throw new Error("ring not drawn");
+if (fetchedFiles.filter((f) => f.endsWith("ring.png")).length !== 3) throw new Error("ring should be drawn once per token");
+settings.style = "GM STYLE";
+await Forge.onForge.call(gistApp);
+if (!falBody.prompt.includes("GM STYLE") || falBody.prompt.includes("GIST STYLE")) throw new Error("GM style should win");
+if (gistCalls !== 1) throw new Error("gist not cached: " + gistCalls);
+settings.style = ""; settings.privateStyle = "";
 
 // A bad key surfaces as an error in the dialog, not a crash.
 gm.game.settings = { ...baseGame.settings, get: (m, k) => (m === "terrain-forge" ? "wrong" : settings[k]) };

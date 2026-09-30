@@ -46,4 +46,15 @@ if (lay.portrait.y + lay.portrait.size > 512) throw new Error("portrait spills b
 eq(L.slugify("Øyvind the Bold!"), "yvind-the-bold", "slug");
 eq(L.slugify(""), "face", "empty slug");
 
+// Gist links: page link, with or without user, API link, bare id; anything else is null.
+const G = "aeee2777f3917151ed9d4580c4fdc578";
+for (const link of [`https://gist.github.com/Kabellosan/${G}`, `https://gist.github.com/${G}`, `https://api.github.com/gists/${G}`, G, ` ${G}#file-x `])
+  eq(L.gistId(link), G, `gist id from ${link}`);
+eq(L.gistId("https://example.com/tables.json"), null, "not a gist");
+const parsed = L.parseGistFiles([
+  { filename: "vagnhild.webp", raw_url: "u1" }, { filename: "Ring.png", raw_url: "u2" },
+  { filename: "face-forge.json", raw_url: "u3" }, { filename: "README.md", raw_url: "u4" }, { filename: "jory.png", raw_url: "u5" }
+]);
+eq([parsed.refs, parsed.ring, parsed.configUrl], [["u1", "u5"], "u2", "u3"], "gist files sorted");
+
 console.log("lib tests pass");

@@ -20,15 +20,20 @@ Hooks.once("init", () => {
     hint: "Leave as https://fal.run. Point it at your own proxy if you'd rather the key never sits in a browser.",
     scope: "world", config: true, restricted: true, type: String, default: "https://fal.run"
   });
+  game.settings.register(MOD, "privateStyle", {
+    name: "Private style link",
+    hint: "A secret GitHub gist (paste the gist page link) holding your style reference portraits, and optionally a ring image and face-forge.json. Keeps campaign art out of the public module. Players could read this link from the browser console.",
+    scope: "world", config: true, restricted: true, type: String, default: ""
+  });
   game.settings.register(MOD, "styleFolder", {
     name: "Style reference folder",
-    hint: "A folder of portraits in the look you want (transparent busts work best). Up to 8 are sent with every request; with more, 8 are picked at random each time.",
+    hint: "Or a folder in your world with portraits in the look you want (transparent busts work best). Used with the private link too. Up to 8 references go with every request; with more, 8 are picked at random.",
     scope: "world", config: true, restricted: true, type: String, default: "", filePicker: "folder"
   });
   game.settings.register(MOD, "style", {
     name: "Art direction",
-    hint: "Added to every prompt. Clear it to restore the default.",
-    scope: "world", config: true, restricted: true, type: String, default: L.DEFAULT_STYLE
+    hint: "Added to every prompt. Leave empty to use the one from your private style link, or the built-in one.",
+    scope: "world", config: true, restricted: true, type: String, default: ""
   });
   game.settings.register(MOD, "quality", {
     name: "Image quality",
@@ -38,7 +43,7 @@ Hooks.once("init", () => {
   });
   game.settings.register(MOD, "ringOverlay", {
     name: "Token ring image",
-    hint: "Optional: a round frame with a transparent middle, drawn on top of every generated token.",
+    hint: "Optional: a round frame with a transparent middle, drawn on top of every generated token. Overrides a ring from the private style link.",
     scope: "world", config: true, restricted: true, type: String, default: "", filePicker: "image"
   });
   game.settings.register(MOD, "dynamicRing", {
@@ -169,18 +174,60 @@ function blobToDataURI(blob) {
   });
 }
 
+/** A blob typed by its file name: gists serve everything as text/plain. */
+function typed(blob, name) {
+  const ext = String(name).split(/[?#]/)[0].split(".").pop().toLowerCase();
+  const type = { webp: "image/webp", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg" }[ext];
+  return type ? new Blob([blob], { type }) : blob;
+}
+
+async function fetchBlob(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`could not load ${url} (${r.status})`);
+  return typed(await r.blob(), url);
+}
+
+/**
+ * The private style gist: { refs: [raw urls], ring: raw url|null, config: {} }.
+ * Cached for 10 minutes; GitHub allows 60 unauthenticated API calls an hour.
+ */
+let gistCache = null;
+async function privateStyle() {
+  const link = game.settings.get(MOD, "privateStyle").trim();
+  if (!link) return { refs: [], ring: null, config: {} };
+  if (gistCache?.link === link && Date.now() - gistCache.at < 10 * 60 * 1000) return gistCache.value;
+  const id = L.gistId(link);
+  if (!id) throw new Error("The private style link isn't a gist link.");
+  const res = await fetch(`https://api.github.com/gists/${id}`, { headers: { Accept: "application/vnd.github+json" } });
+  if (!res.ok) throw new Error(`could not read the private style gist (${res.status})`);
+  const value = L.parseGistFiles(Object.values((await res.json())?.files ?? {}));
+  if (value.configUrl) {
+    try { value.config = await (await fetch(value.configUrl)).json(); }
+    catch (err) { reportError("face-forge.json in the private style gist is not valid JSON", err); }
+  }
+  gistCache = { link, at: Date.now(), value };
+  return value;
+}
+
 /** The style references as data URIs, so fal.ai never needs to reach this server. */
 async function loadRefs() {
+  const urls = [...(await privateStyle()).refs];
   const folder = game.settings.get(MOD, "styleFolder").trim();
-  if (!folder) throw new Error("No style reference folder set. Pick one in Configure Settings → Face Forge.");
-  const res = await filePicker().browse("data", folder);
-  const files = (res?.files ?? []).filter((f) => L.IMAGE_EXT.test(f));
-  if (!files.length) throw new Error(`No images in the style reference folder (${folder}).`);
-  return Promise.all(L.pickRefs(files).map(async (f) => {
-    const r = await fetch(f);
-    if (!r.ok) throw new Error(`could not load style reference ${f} (${r.status})`);
-    return blobToDataURI(await r.blob());
-  }));
+  if (folder) {
+    const res = await filePicker().browse("data", folder);
+    urls.push(...(res?.files ?? []).filter((f) => L.IMAGE_EXT.test(f)));
+  }
+  if (!urls.length) throw new Error("No style references. Set a private style link or a style reference folder in Configure Settings → Face Forge.");
+  return Promise.all(L.pickRefs(urls).map(async (u) => blobToDataURI(await fetchBlob(u))));
+}
+
+async function artDirection() {
+  return game.settings.get(MOD, "style").trim() || (await privateStyle()).config?.style || L.DEFAULT_STYLE;
+}
+
+async function ringImage() {
+  const own = game.settings.get(MOD, "ringOverlay").trim();
+  return own || (await privateStyle()).ring;
 }
 
 async function callFal(prompt) {
@@ -201,16 +248,6 @@ async function callFal(prompt) {
   const images = (await res.json())?.images ?? [];
   if (!images.length) throw new Error("fal.ai returned no images. Try rewording the description.");
   return Promise.all(images.map(async (img) => (await fetch(img.url)).blob()));
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`could not load ${src}`));
-    img.src = src;
-  });
 }
 
 function canvasBlob(canvas, type = "image/webp", q = 0.9) {
@@ -248,8 +285,12 @@ async function tokenWebp(blob, S = 512) {
   fade.addColorStop(0, "rgba(255,255,255,0)"); fade.addColorStop(1, "rgba(255,255,255,1)");
   ctx.fillStyle = fade; ctx.fillRect(0, 0, S, S);
   ctx.restore();
-  const ring = game.settings.get(MOD, "ringOverlay").trim();
-  if (ring) ctx.drawImage(await loadImage(ring), 0, 0, S, S);
+  const ring = await ringImage();
+  if (ring) {
+    const rb = await createImageBitmap(await fetchBlob(ring));
+    ctx.drawImage(rb, 0, 0, S, S);
+    rb.close?.();
+  }
   return canvasBlob(c);
 }
 
@@ -261,7 +302,7 @@ async function upload(dir, name, blob) {
 
 /** Generate, build tokens, upload: [{ portrait, token }]. GM only. */
 async function forgeHere({ description, name }) {
-  const prompt = L.buildPrompt({ description, style: game.settings.get(MOD, "style") });
+  const prompt = L.buildPrompt({ description, style: await artDirection() });
   const blobs = await callFal(prompt);
   const dir = `worlds/${game.world.id}/face-forge`;
   await ensureDir(dir);

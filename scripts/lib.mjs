@@ -112,6 +112,26 @@ export function pickRefs(paths, max = MAX_REFS, rand = Math.random) {
 }
 
 export const IMAGE_EXT = /\.(webp|png|jpe?g)$/i;
+export const RING_NAME = /^ring\.(webp|png)$/i;
+export const CONFIG_NAME = "face-forge.json";
+
+/** The gist id from a gist page link, an API link, or a bare id. */
+export function gistId(link) {
+  const m = String(link ?? "").trim().match(/(?:gist\.github\.com\/(?:[^/]+\/)?|api\.github\.com\/gists\/|^)([0-9a-f]{20,40})(?:[/?#.]|$)/i);
+  return m ? m[1] : null;
+}
+
+/** Sort a gist's files: style references, the ring (ring.png/webp), the config file. */
+export function parseGistFiles(files) {
+  const out = { refs: [], ring: null, configUrl: null, config: {} };
+  for (const f of files ?? []) {
+    const name = f?.filename ?? "";
+    if (name.toLowerCase() === CONFIG_NAME) out.configUrl = f.raw_url;
+    else if (RING_NAME.test(name)) out.ring = f.raw_url;
+    else if (IMAGE_EXT.test(name)) out.refs.push(f.raw_url);
+  }
+  return out;
+}
 
 /**
  * Where things go on the round ring token (size S): a warm glow behind the head,

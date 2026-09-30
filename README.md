@@ -11,17 +11,26 @@ Works on Foundry v13 and v14. Built for Dragonbane (reads kin, profession, age a
 2. Restart Foundry and enable **Face Forge** in *Manage Modules*.
 3. *Configure Settings → Face Forge*:
    - **fal.ai API key**: leave empty if Terrain Forge already has one; Face Forge uses it.
-   - **Style reference folder**: see below. Required.
+   - **Private style link** or **Style reference folder**: see below. One of them is required.
 
 ## Style references: the look of your campaign
 
-Face Forge doesn't describe a style in words; it *shows* the image model examples. Put 6–8 portraits in the look you want into one folder (upload them with Foundry's file browser), and point the setting at it.
+Face Forge doesn't describe a style in words; it *shows* the image model examples. Give it 6–8 portraits in the look you want:
 
 - Pick **single-character busts** with transparent backgrounds. Group shots and full-body art pull the results away from token-friendly portraits.
 - Pick **variety**: young and old, human and non-human, different expressions. Too many similar faces and the model starts copying faces instead of the style.
-- With more than 8 images in the folder, 8 are picked at random each time.
+- With more than 8, 8 are picked at random each time.
 
-The references stay in your world. They're never part of this module.
+Two places to keep them; use either or both:
+
+- **Private style link** (easiest if your references are art you bought): a **secret GitHub gist**. Paste its page link into the setting. Every image in the gist is a style reference, except:
+  - `ring.png` / `ring.webp`: a round frame with a transparent middle, drawn on every token.
+  - `face-forge.json`: optional settings, e.g. `{ "style": "…art direction text…" }`. Used when the *Art direction* setting is empty.
+
+  Update the gist and the next forge (within 10 minutes) uses it; no module update needed. A secret gist is unlisted, not locked: anyone with the link can see it, and players could find the link in the browser console. Fine for a home game.
+- **Style reference folder**: upload portraits into a folder in your world with Foundry's file browser and point the setting at it.
+
+Nothing ships with the module itself.
 
 ## Use
 
@@ -45,7 +54,7 @@ A player's request is sent to a logged-in GM's browser, which calls fal.ai with 
 
 The token is the portrait on a round, warm-glow background that fades to white at the edge, the way ring tokens usually look. Two ways to frame it:
 
-- **Token ring image**: a round frame with a transparent middle, drawn on top of every generated token. It's baked into the token file, so it looks the same everywhere.
+- **Token ring image** (or `ring.png` in your private style gist): a round frame with a transparent middle, drawn on top of every generated token. It's baked into the token file, so it looks the same everywhere.
 - **Turn on Foundry's dynamic token ring**: uses whatever ring your system or modules provide.
 
 If the ring cuts off heads, lower **Portrait size inside the token**.
