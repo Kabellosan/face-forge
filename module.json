@@ -1,7 +1,7 @@
 {
   "id": "face-forge",
   "title": "Face Forge",
-  "description": "AI portraits and round tokens that match your campaign's art. Players forge their own at character creation; the GM forges NPCs in seconds. Built for Dragonbane, works anywhere.",
+  "description": "AI portraits and round tokens that match your campaign's own art. Players forge their own at character creation; the GM forges NPCs in seconds. Built for Dragonbane, works anywhere.",
   "version": "0.1.0",
   "authors": [{ "name": "Captain", "url": "https://github.com/Kabellosan" }],
   "url": "https://github.com/Kabellosan/face-forge",
