@@ -1,0 +1,16 @@
+.face-forge .window-content { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem; }
+.face-forge label { display: flex; flex-direction: column; gap: 0.2rem; font-weight: 600; }
+.face-forge textarea { font-weight: normal; resize: vertical; }
+.face-forge .ff-hint { opacity: 0.8; margin: 0; }
+.face-forge .ff-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.face-forge .ff-card { position: relative; display: block; aspect-ratio: 1; border-radius: 6px; border: 3px solid transparent; background: rgba(0, 0, 0, 0.25); cursor: pointer; overflow: hidden; }
+.face-forge .ff-card img { width: 100%; height: 100%; object-fit: contain; border: none; }
+.face-forge .ff-card .ff-token { position: absolute; right: 4px; bottom: 4px; width: 32%; height: auto; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6)); }
+.face-forge .ff-card:hover { border-color: rgba(255, 200, 80, 0.5); }
+.face-forge .ff-card.is-chosen { border-color: #e6b33c; }
+.face-forge .ff-wait { display: flex; align-items: center; justify-content: center; font-size: 2rem; opacity: 0.6; cursor: default; }
+.face-forge .ff-footer { display: flex; align-items: center; gap: 0.5rem; }
+.face-forge .ff-status { flex: 1; font-size: 0.85em; opacity: 0.8; }
+.face-forge .ff-footer button { flex: 0 0 auto; width: auto; }
+.face-forge .ff-link { cursor: pointer; font-size: 0.9em; }
+.ff-open { margin-top: 0.25rem; }
