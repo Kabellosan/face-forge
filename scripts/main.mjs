@@ -267,12 +267,13 @@ async function portraitWebp(blob, size = 768) {
 
 /** The round token: warm glow, portrait, white fade to the edge, optional ring on top. */
 async function tokenWebp(blob, S = 512) {
-  const lay = L.tokenLayout(S, game.settings.get(MOD, "tokenScale"));
+  const ring = await ringImage();
+  const lay = L.tokenLayout(S, game.settings.get(MOD, "tokenScale"), !!ring);
   const c = document.createElement("canvas");
   c.width = c.height = S;
   const ctx = c.getContext("2d");
   ctx.save();
-  ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2); ctx.clip();
+  ctx.beginPath(); ctx.arc(S / 2, S / 2, lay.clip, 0, Math.PI * 2); ctx.clip();
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, S, S);
   const [r, g, b] = lay.glow.color;
   const glow = ctx.createRadialGradient(lay.glow.x, lay.glow.y, 0, lay.glow.x, lay.glow.y, lay.glow.r);
@@ -285,7 +286,6 @@ async function tokenWebp(blob, S = 512) {
   fade.addColorStop(0, "rgba(255,255,255,0)"); fade.addColorStop(1, "rgba(255,255,255,1)");
   ctx.fillStyle = fade; ctx.fillRect(0, 0, S, S);
   ctx.restore();
-  const ring = await ringImage();
   if (ring) {
     const rb = await createImageBitmap(await fetchBlob(ring));
     ctx.drawImage(rb, 0, 0, S, S);

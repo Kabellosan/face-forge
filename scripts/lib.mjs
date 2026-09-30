@@ -137,11 +137,15 @@ export function parseGistFiles(files) {
  * Where things go on the round ring token (size S): a warm glow behind the head,
  * the portrait scaled down so the ring doesn't cut the head, and a white fade to the edge.
  */
-export function tokenLayout(S, scale = 0.86) {
+export function tokenLayout(S, scale = 0.86, ringed = false) {
   const size = Math.round(S * scale);
+  // With a ring on top, the painted circle stops under the ring's solid band
+  // (44–46% of the width on the Dragonbane chain), so nothing shows past it.
+  const clip = S * (ringed ? 0.45 : 0.5);
   return {
+    clip,
     portrait: { x: Math.round((S - size) / 2), y: Math.round(S * 0.07), size },
     glow: { x: S / 2, y: S * 0.42, r: S * 0.42, color: [226, 205, 150] },
-    fade: { inner: S * 0.36, outer: S * 0.5 }
+    fade: { inner: clip * 0.72, outer: clip }
   };
 }

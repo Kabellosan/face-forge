@@ -21,9 +21,9 @@ Foundry VTT module for Captain's Dragonbane campaign. Describe a character (pref
 
 Character: `system.kin`/`system.profession` strings, but the real ones are embedded Items of type `kin`/`profession` (read those first); `system.age` = young/adult/old; `system.appearance`. NPC/monster: `system.description` (HTML), NPC also `system.traits`.
 
-## Open threads (as of v0.1.0)
+## Open threads (as of v0.1.1)
 
-- **The green chain ring**: unclear whether the Dragonbane module bakes it into token files or provides it as a Foundry dynamic ring. Both are supported (ring overlay image setting / dynamic ring toggle). Need one of the module's *token* files (not the portraits) to cut a ring overlay from.
+- **Ring**: the Dragonbane chain ring is `ring.png` in the style gist (`~/face-forge-style`, gist 864152061cfcf5d9f0acacf4626f9e3c, pushes over SSH like the Terrain Forge gist). Its solid band sits at 44–46% of the width, so with a ring the painted circle is clipped at 45% (`tokenLayout(..., ringed)`).
 - Style tuning: round 2 (strong caricature, saturated) vs round 3 (paler, drifts realistic); the default style text blends them. Tune live via the *Art direction* setting.
 - Canvas compositing and the socket relay are only mock-tested; not yet run on real Foundry v14 / Sqyre.
 - Ideas: per-player forge budget; GM approval before a player's pick applies; cleanup of unchosen candidates.

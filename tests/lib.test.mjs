@@ -43,6 +43,7 @@ const lay = L.tokenLayout(512, 0.86);
 eq(lay.portrait.x * 2 + lay.portrait.size, 512, "portrait centred");
 if (lay.portrait.y + lay.portrait.size > 512) throw new Error("portrait spills below the token");
 
+eq([L.tokenLayout(512).clip, L.tokenLayout(512, 0.86, true).clip], [256, 230.4], "clip under the ring");
 eq(L.slugify("Øyvind the Bold!"), "yvind-the-bold", "slug");
 eq(L.slugify(""), "face", "empty slug");
 
