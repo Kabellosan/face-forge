@@ -3,18 +3,35 @@ import * as L from "../scripts/lib.mjs";
 const eq = (a, b, what) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${what}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); };
 const has = (s, part, what) => { if (!String(s).includes(part)) throw new Error(`${what}: "${s}" lacks "${part}"`); };
 
-// Characters: age + kin hint + profession + appearance.
+// Characters: age + kin + profession, kin hint, appearance.
 eq(L.describeActor({ type: "character", kin: "Dwarf", profession: "Artisan", age: "old", appearance: "<p>Soot on her cheeks</p>" }),
-  "an elderly dwarf: short, broad and heavily bearded who works as an artisan. Soot on her cheeks", "old dwarf");
+  "an elderly dwarf who works as an artisan. Dwarves are short, broad and stocky. Soot on her cheeks", "old dwarf");
 eq(L.describeActor({ type: "character", profession: "Knight" }), "a knight", "profession only");
-has(L.describeActor({ type: "character", kin: "Mallard", age: "adult" }), "duck-person", "mallard hint");
+has(L.describeActor({ type: "character", kin: "Mallard", age: "adult" }), "duck-people", "mallard hint");
 eq(L.describeActor({ type: "character", kin: "Human", age: "young" }), "a young human", "young human");
 eq(L.describeActor({ type: "character" }), "", "empty character");
-// Unknown kin passes through; NPCs use their description.
 eq(L.describeActor({ type: "character", kin: "Goblin" }), "a goblin", "unknown kin");
 eq(L.describeActor({ type: "npc", description: "<p>A ferrywoman&nbsp;with one eye</p>" }), "A ferrywoman with one eye", "npc description");
-// Appearance on a character wins over description.
 eq(L.describeActor({ type: "character", appearance: "tall", description: "ignored" }), "tall", "appearance first");
+
+// Ability scores: 9–11 add nothing; the rest become looks.
+eq([3, 5, 6, 8, 9, 11, 12, 14, 15, 18, undefined].map(L.attributeBand), [0, 0, 1, 1, null, null, 2, 2, 3, 3, null], "bands");
+const teg = { type: "character", kin: "Human", profession: "Hunter", age: "adult",
+  attributes: { str: 7, con: 11, agl: 14, int: 9, wil: 14, cha: 12 }, armor: "Leather Armor", weapons: ["Longbow", "Knife"] };
+eq(L.describeActor(teg, L.lookDefaults(teg)),
+  "a human who works as a hunter. A slight, narrow-shouldered build; a lean, wiry, alert bearing; a steady, determined gaze; pleasant, likeable looks. Wearing leather armor, carrying a longbow and a knife", "Teg from the sheet");
+// The form's choices: gender, hair, beard, expression, features; age overrides the sheet.
+const tegLook = { gender: "man", age: "young", hairColour: "copper-red", hairStyle: "shaggy", facialHair: "stubble", expression: "wary", features: "a scar across the nose" };
+eq(L.describeActor(teg, tegLook),
+  "a young human man who works as a hunter, with shaggy copper-red hair and stubble. A slight, narrow-shouldered build; a lean, wiry, alert bearing; a steady, determined gaze; pleasant, likeable looks. Wearing leather armor, carrying a longbow and a knife. Expression: wary. A scar across the nose", "Teg with choices");
+has(L.describeActor({ kin: "Dwarf" }, { gender: "woman", hairStyle: "bald", facialHair: "a braided beard" }), "dwarf woman, bald with a braided beard", "bald + beard");
+has(L.describeActor({}, { hairColour: "grey", hairStyle: "a shaved head" }), "a shaved head with grey stubble", "shaved head");
+has(L.describeActor({}, { hairStyle: "cropped short", hairColour: "black" }), "short-cropped black hair", "cropped");
+has(L.describeActor({ helmet: "Open Helmet" }), "Wearing an open helmet", "helmet alone");
+has(L.describeActor({ armor: "Chainmail", helmet: "Great Helm" }), "Wearing chainmail and a great helm", "armour + helmet");
+eq(L.lookDefaults({ age: "old" }).age, "old", "age from sheet");
+eq(L.lookDefaults({ age: "ancient" }).age, "", "unknown age ignored");
+for (const [k, d] of Object.entries(L.LOOK_OPTIONS)) if (d.options[0] !== "") throw new Error(`${k}: first option must be Any`);
 
 // Prompt: style guard, description, default style, transparency.
 const p = L.buildPrompt({ description: "a wolfkin bard", style: "" });

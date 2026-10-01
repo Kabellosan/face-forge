@@ -14,3 +14,6 @@
 .face-forge .ff-footer button { flex: 0 0 auto; width: auto; }
 .face-forge .ff-link { cursor: pointer; font-size: 0.9em; }
 .ff-open { margin-top: 0.25rem; }
+.face-forge .ff-looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem 0.6rem; }
+.face-forge .ff-looks select { font-weight: normal; }
+.face-forge input[type="text"] { font-weight: normal; }

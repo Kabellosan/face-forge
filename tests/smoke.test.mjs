@@ -74,8 +74,14 @@ const makeSocket = (who) => ({ handlers: [], on(n, f) { this.handlers.push(f); }
 const updates = [];
 const actor = {
   id: "a1", name: "Vigdis", type: "character", isOwner: true,
-  system: { age: "young", appearance: "a scar through one eyebrow" },
-  items: [{ type: "kin", name: "Human" }, { type: "profession", name: "Hunter" }],
+  system: { age: "young", appearance: "a scar through one eyebrow",
+    attributes: { str: { base: 7, value: 7 }, con: { value: 11 }, agl: { value: 14 }, int: { value: 9 }, wil: { value: 14 }, cha: { value: 12 } } },
+  items: [{ type: "kin", name: "Human" }, { type: "profession", name: "Hunter" },
+    { type: "armor", name: "Leather Armor", system: { worn: true } }, { type: "armor", name: "Plate Armor", system: { worn: false } },
+    { type: "weapon", name: "Longbow", system: { worn: true } }, { type: "weapon", name: "Broadsword", system: {} }],
+  flags: {},
+  getFlag(m, k) { return this.flags[m]?.[k]; },
+  async setFlag(m, k, v) { (this.flags[m] ??= {})[k] = structuredClone(v); },
   prototypeToken: {}, update: async (u) => { updates.push(u); }
 };
 const tokenUpdates = [];
@@ -122,12 +128,17 @@ settings.styleFolder = "worlds/vale/style";
 // GM opens the dialog for the actor: description comes from the sheet.
 gm.run(() => {});
 const app = await api.open(actor);
-if (!app.ff.description.includes("young human") || !app.ff.description.includes("hunter") || !app.ff.description.includes("scar")) throw new Error("description: " + app.ff.description);
+for (const part of ["young human", "hunter", "scar", "slight, narrow-shouldered", "leather armor", "a longbow"])
+  if (!app.ff.description.includes(part)) throw new Error(`description lacks "${part}": ${app.ff.description}`);
+if (/plate|broadsword/i.test(app.ff.description)) throw new Error("unworn gear in description");
+if (!app.lastHTML.includes('data-look="hairColour"') || !app.lastHTML.includes("copper-red")) throw new Error("look dropdowns missing");
 if (!app.lastHTML.includes("Forge")) throw new Error("dialog did not render");
 
 // Forge as GM: Terrain Forge's key, three refs (txt skipped), three candidates, six uploads.
 const Forge = app.constructor;
+app.ff.look.hairColour = "copper-red";
 await Forge.onForge.call(app);
+if (actor.getFlag("face-forge", "look")?.hairColour !== "copper-red") throw new Error("look not remembered on the actor");
 if (errors.length) throw new Error("errors: " + errors.join(" | "));
 if (falBody.image_urls.length !== 3 || falBody.num_images !== 3 || falBody.background !== "transparent") throw new Error("bad fal request");
 if (app.ff.candidates.length !== 3 || uploads.length !== 6) throw new Error(`candidates ${app.ff.candidates.length}, uploads ${uploads.length}`);
@@ -142,9 +153,13 @@ if (u.img !== app.ff.candidates[1].portrait || u["prototypeToken.texture.src"] !
 if ("prototypeToken.ring.enabled" in u) throw new Error("ring turned on while the setting is off");
 if (tokenUpdates.length !== 1 || tokenUpdates[0]._id !== "t1") throw new Error("linked token not updated");
 
-// Dynamic ring on: the ring and its subject are set too.
+// Dynamic ring on: the ring and its subject are set too. Reopening remembers the look.
 settings.dynamicRing = true;
 const app2 = await api.open(actor);
+if (app2.ff.look.hairColour !== "copper-red" || !app2.ff.description.includes("copper-red hair")) throw new Error("look not restored: " + app2.ff.description);
+app2.ff.description = "hand-written"; app2.ff.descEdited = true;
+Forge.onRebuild.call(app2);
+if (app2.ff.descEdited || !app2.ff.description.includes("hunter")) throw new Error("rebuild did not restore the built description");
 await Forge.onForge.call(app2);
 Forge.onPick.call(app2, null, { dataset: { index: "0" } });
 await Forge.onUse.call(app2);
@@ -193,4 +208,4 @@ errors.length = 0;
 await Forge.onForge.call(bad);
 if (!errors.some((e) => e.includes("rejected the key")) || bad.ff.busy) throw new Error("bad key not reported: " + errors.join(" | "));
 
-console.log("smoke test passes: describe from sheet, GM forge, refs filter, pick + apply, linked tokens, dynamic ring, new NPC, player relay, forging off, no GM, bad key");
+console.log("smoke test passes: describe from sheet (abilities, worn gear, look dropdowns, remembered look, rebuild), GM forge, refs filter, pick + apply, linked tokens, dynamic ring, new NPC, player relay, forging off, no GM, bad key");

@@ -133,12 +133,20 @@ function reportError(what, err) {
 function actorSummary(actor) {
   if (!actor) return {};
   const s = actor.system ?? {};
-  const item = (type) => actor.items?.find?.((i) => i.type === type)?.name;
+  const items = [...(actor.items ?? [])];
+  const item = (type) => items.find((i) => i.type === type)?.name;
+  // Dragonbane marks armour, helmets and weapons at hand as "worn".
+  const worn = (type) => items.filter((i) => i.type === type && (i.system?.worn || i.system?.mainHand || i.system?.offHand)).map((i) => i.name);
+  const attrs = Object.fromEntries(Object.entries(s.attributes ?? {}).map(([k, v]) => [k, v?.value ?? v]));
   return {
     type: actor.type,
     kin: item("kin") || s.kin,
     profession: item("profession") || s.profession,
     age: s.age,
+    attributes: attrs,
+    armor: worn("armor")[0],
+    helmet: worn("helmet")[0],
+    weapons: worn("weapon"),
     appearance: s.appearance,
     description: s.description || s.traits
   };
@@ -389,12 +397,13 @@ class FaceForgeApp extends ApplicationV2 {
     tag: "div",
     classes: ["face-forge"],
     window: { title: "Face Forge", icon: "fa-solid fa-masks-theater", resizable: true },
-    position: { width: 640, height: "auto" },
+    position: { width: 680, height: "auto" },
     actions: {
       forge: FaceForgeApp.onForge,
       pick: FaceForgeApp.onPick,
       use: FaceForgeApp.onUse,
-      reset: FaceForgeApp.onReset
+      reset: FaceForgeApp.onReset,
+      rebuild: FaceForgeApp.onRebuild
     }
   };
 
@@ -412,10 +421,15 @@ class FaceForgeApp extends ApplicationV2 {
 
   constructor(actor) {
     super();
+    const summary = actorSummary(actor);
+    const look = { ...L.lookDefaults(summary), ...(actor?.getFlag?.(MOD, "look") ?? {}) };
     this.ff = {
       actorId: actor?.id ?? null,
       name: actor?.name ?? "",
-      description: L.describeActor(actorSummary(actor)),
+      summary,
+      look,
+      description: L.describeActor(summary, look),
+      descEdited: false,
       candidates: [],
       chosen: null,
       busy: false,
@@ -429,7 +443,7 @@ class FaceForgeApp extends ApplicationV2 {
     const s = this.ff;
     const cost = L.estimateCost(game.settings.get(MOD, "quality"));
     const who = this.actor
-      ? `<p class="ff-hint">For <strong>${L.escapeHTML(s.name)}</strong>. Describe how they look; the more specific, the better.</p>`
+      ? `<p class="ff-hint">For <strong>${L.escapeHTML(s.name)}</strong>. Pick what matters to you; "Any" leaves it to the painter.</p>`
       : `<label>Name of the new NPC<input type="text" name="name" value="${L.escapeHTML(s.name)}" placeholder="Old Maud the ferrywoman"></label>`;
     const cards = s.candidates.map((c, i) => `
       <a class="ff-card ${s.chosen === i ? "is-chosen" : ""}" data-action="pick" data-index="${i}" title="Choose this one">
@@ -442,7 +456,14 @@ class FaceForgeApp extends ApplicationV2 {
     const useLabel = this.actor ? "Use this face" : "Create NPC";
     return `
       ${who}
-      <label>Appearance<textarea name="description" rows="3" placeholder="a young dwarf blacksmith with a braided copper beard and soot on her cheeks">${L.escapeHTML(s.description)}</textarea></label>
+      <div class="ff-looks">${Object.entries(L.LOOK_OPTIONS).map(([key, def]) => `
+        <label>${def.label}<select data-look="${key}">${def.options.map((o) => `
+          <option value="${L.escapeHTML(o)}" ${s.look[key] === o ? "selected" : ""}>${o ? L.escapeHTML(o) : "Any"}</option>`).join("")}
+        </select></label>`).join("")}
+      </div>
+      <label>Distinguishing features<input type="text" data-look="features" value="${L.escapeHTML(s.look.features ?? "")}" placeholder="a scar across the nose, a raven tattoo on the neck"></label>
+      <label>Description sent to the painter<textarea name="description" rows="4">${L.escapeHTML(s.description)}</textarea></label>
+      ${s.descEdited ? `<a class="ff-link" data-action="rebuild"><i class="fa-solid fa-rotate"></i> Rebuild from the sheet and the choices above</a>` : `<p class="ff-hint">Built from the sheet (kin, profession, abilities, worn gear) and the choices above. Edit it freely.</p>`}
       ${slots}
       <footer class="ff-footer">
         <span class="ff-status">${L.escapeHTML(s.status) || (s.candidates.length ? "Pick one, or forge again." : `Makes ${L.CANDIDATES} options, about $${cost.toFixed(2)}.`)}</span>
@@ -454,13 +475,27 @@ class FaceForgeApp extends ApplicationV2 {
 
   _replaceHTML(result, content) {
     content.innerHTML = result;
-    content.querySelectorAll("textarea, input").forEach((el) =>
-      el.addEventListener("input", () => { this.ff[el.name] = el.value; }));
+    const desc = content.querySelector?.("textarea[name=description]");
+    content.querySelectorAll("[data-look]").forEach((el) =>
+      el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => {
+        this.ff.look[el.dataset.look] = el.value;
+        if (this.ff.descEdited) return;
+        this.ff.description = L.describeActor(this.ff.summary, this.ff.look);
+        if (desc) desc.value = this.ff.description;
+      }));
+    content.querySelectorAll("input[name=name]").forEach((el) =>
+      el.addEventListener("input", () => { this.ff.name = el.value; }));
+    desc?.addEventListener("input", () => {
+      this.ff.description = desc.value;
+      if (!this.ff.descEdited) { this.ff.descEdited = true; this.render(); }
+    });
   }
 
   static async onForge() {
     const s = this.ff;
     if (!s.description.trim()) return ui.notifications.warn("Face Forge: describe the character first.");
+    // Remember the choices on the character for next time.
+    if (this.actor?.isOwner) this.actor.setFlag(MOD, "look", s.look).catch((e) => log("could not save look", e));
     s.busy = true; s.chosen = null; s.status = game.user.isGM ? "Painting… (30–90 seconds)" : "Asking the GM's browser to paint… (30–90 seconds)";
     await this.render();
     try {
@@ -477,6 +512,11 @@ class FaceForgeApp extends ApplicationV2 {
 
   static onPick(event, target) {
     this.ff.chosen = Number(target.dataset.index);
+    this.render();
+  }
+
+  static onRebuild() {
+    Object.assign(this.ff, { description: L.describeActor(this.ff.summary, this.ff.look), descEdited: false });
     this.render();
   }
 

@@ -34,7 +34,9 @@ Nothing ships with the module itself.
 
 ## Use
 
-- **Players**: open your character sheet → **Face Forge** in the header. The appearance box is filled in from your sheet; add detail ("a braided copper beard, soot on her cheeks"). **Forge**, wait 30–90 seconds, click the one you like, **Use this face**.
+- **Players**: open your character sheet → **Face Forge** in the header. Pick gender, age, hair, facial hair and expression (or leave them on *Any*), add distinguishing features, then **Forge**. Wait 30–90 seconds, click the one you like, **Use this face**. Your choices are remembered on the character.
+
+  The description sent to the painter is built from the sheet too: kin, profession, age, worn armour and helmet, weapons at hand, and any ability score that stands out (9–11 is average and adds nothing; STR 7 reads as a slight build, WIL 14 as a steady, determined gaze). Edit the description freely; once you do, the choices stop overwriting it until you click *Rebuild*.
 - **GM, existing actor**: same button on any sheet, or right-click the actor in the sidebar → **Face Forge**.
 - **GM, new NPC**: Actors sidebar → **Face Forge** button. Name them, describe them, pick one → **Create NPC**.
 - Macro: `game.modules.get("face-forge").api.open(actor)`.

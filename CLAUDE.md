@@ -19,9 +19,11 @@ Foundry VTT module for Captain's Dragonbane campaign. Describe a character (pref
 
 ## Dragonbane data
 
+The description is built in `L.describeActor(summary, look)`: kin/profession/age, kin hint sentence, look dropdowns (`LOOK_OPTIONS`, saved as actor flag `face-forge.look`), ability-score looks (`ATTRIBUTE_LOOKS`; 9–11 adds nothing, bands 3–5/6–8/12–14/15–18; Captain's idea 2026-10-01), worn armour/helmet and weapons at hand (`system.worn`/`mainHand`/`offHand`, unverified on live data). Attributes: `system.attributes.<str|con|agl|int|wil|cha>.value`.
+
 Character: `system.kin`/`system.profession` strings, but the real ones are embedded Items of type `kin`/`profession` (read those first); `system.age` = young/adult/old; `system.appearance`. NPC/monster: `system.description` (HTML), NPC also `system.traits`.
 
-## Open threads (as of v0.1.1)
+## Open threads (as of v0.1.2)
 
 - **Ring**: the Dragonbane chain ring is `ring.png` in the style gist (`~/face-forge-style`, gist 864152061cfcf5d9f0acacf4626f9e3c, pushes over SSH like the Terrain Forge gist). Its solid band sits at 44–46% of the width, so with a ring the painted circle is clipped at 45% (`tokenLayout(..., ringed)`).
 - Style tuning: round 2 (strong caricature, saturated) vs round 3 (paler, drifts realistic); the default style text blends them. Tune live via the *Art direction* setting.
